@@ -12,4 +12,6 @@ def read_with_year(path):
 
 df = pd.concat((read_with_year(f) for f in files), ignore_index=True)
 
+# df_filtered = df[df['Counter Value'] != '0']
+
 print(df)
