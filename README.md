@@ -19,8 +19,6 @@ This script performs the following:
 8. **Creates useful indexes** on `time_stamp` and `year` for query
     performance
 
-------------------------------------------------------------------------
-
 ## 📁 Project Structure
 
     .
@@ -32,8 +30,6 @@ This script performs the following:
     ├── config.py
     ├── data-clean.py
     └── README.md
-
-------------------------------------------------------------------------
 
 ## 📊 Data Requirements
 
@@ -47,20 +43,18 @@ Each filename must contain a **4-digit year** (e.g.,
 
 Your CSVs should contain:
 
-  Column Name       Purpose
+  Column Name   |    Purpose
   ----------------- | -------------------------------------
-  `counter_value`   Used to filter out zeroes
-  `increment`       Stored as integer
-  `time_stamp`      Parsed into datetime
-  `date`, `time`    Dropped once `time_stamp` is parsed
+  `counter_value`   | Used to filter out zeroes
+  `increment`       | Stored as integer
+  `time_stamp`      | Parsed into datetime
+  `date`, `time`    | Dropped once `time_stamp` is parsed
 
 Columns are auto-cleaned to:
 
-- lowercase\
-- underscores instead of spaces\
+- lowercase
+- underscores instead of spaces
 - no special characters
-
-------------------------------------------------------------------------
 
 ## 🔧 Configuration
 
@@ -73,8 +67,6 @@ Create a `config.py` file:
     PORT = 3306
     DB   = "your_database"
     ```
-
-------------------------------------------------------------------------
 
 ## 🏗️ How It Works
 
@@ -99,8 +91,6 @@ Data is written with appropriate MySQL types and replaced each run.
 - Adds `id` BIGINT AUTO_INCREMENT primary key\
 - Adds indexes on `time_stamp` and `year`
 
-------------------------------------------------------------------------
-
 ## ▶️ Running the Script
 
 Install dependencies:
@@ -114,8 +104,6 @@ Run:
     ``` bash
     python3 data-clean.py
     ```
-
-------------------------------------------------------------------------
 
 ## 🧪 Example Query
 
