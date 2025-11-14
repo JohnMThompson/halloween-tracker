@@ -28,6 +28,7 @@ This script performs the following:
     │   ├── tracking_2023.csv
     │   ├── tracking_2024.csv
     │   └── ...
+    ├── .gitignore
     ├── config.py
     ├── data-clean.py
     └── README.md
