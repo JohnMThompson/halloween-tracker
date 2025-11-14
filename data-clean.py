@@ -33,13 +33,13 @@ df = df[df['counter_value'] != 0]
 df['time_stamp'] = pd.to_datetime(df['time_stamp'], errors='coerce')
 df = df.drop(columns=['date', 'time',])
 
-tz = "America/Chicago"
-df["time_stamp"] = (
-    df["time_stamp"]
-      .dt.tz_localize(tz, nonexistent="shift_forward", ambiguous="NaT")
-      .dt.tz_convert("UTC")
-      .dt.tz_localize(None)
-)
+# tz = "America/Chicago"
+# df["time_stamp"] = (
+#     df["time_stamp"]
+#       .dt.tz_localize(tz, nonexistent="shift_forward", ambiguous="NaT")
+#       .dt.tz_convert("UTC")
+#       .dt.tz_localize(None)
+# )
 
 dtype_map = {
     'time_stamp': DateTime(),
@@ -57,7 +57,7 @@ def get_engine():
     port = config.PORT
     database = config.DB
     return create_engine(
-        f"mysql+pymysql://{USER}:{PASS}@{HOST}:{PORT}/{DB}?charset=utf8mb4"
+        f"mysql+pymysql://{user}:{password}@{host}:{port}/{database}?charset=utf8mb4"
         )
 
 engine = get_engine()
