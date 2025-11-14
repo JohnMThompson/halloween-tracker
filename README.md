@@ -126,6 +126,11 @@ Run:
     LIMIT 50;
     ```
 
+## 📄 License
+
+This project is licensed under the **MIT License**.\
+See the `LICENSE` file for full details.
+
 ## Additional Info
 
 This README.md was created with the assistance of AI.
