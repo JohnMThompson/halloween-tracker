@@ -1,125 +1,109 @@
-# 🎃 Halloween Tracking ETL Pipeline
+# Halloween Tracking Ingestion
 
-A small, reliable ETL script for ingesting yearly CSV files of Halloween
-counter data, cleaning and standardizing the dataset, and loading it
-into a MySQL database with proper indexing.
+This project ingests yearly Halloween counter CSV exports from `data/` into a single MySQL table with idempotent upserts.
 
-## 📌 Overview
+## What the script does
 
-This script performs the following:
+1. Discovers `*.csv` files in a data directory.
+2. Normalizes headers (`lowercase`, spaces to `_`, strips non-alphanumeric `_`).
+3. Validates required columns: `time_stamp`, `date`, `time`, `counter_value`, `increment`.
+4. Extracts year from each filename (must include a 4-digit year).
+5. Parses and type-checks values.
+6. Filters rows where `counter_value == 0`.
+7. Loads to MySQL using staging + `INSERT ... ON DUPLICATE KEY UPDATE`.
+8. Prints a run summary.
 
-1. **Loads multiple CSV files** from `data/*.csv`\
-2. **Cleans and normalizes column names**\
-3. **Extracts the year** from each filename and appends it as a field\
-4. **Filters invalid rows** (`counter_value != 0`)\
-5. **Parses timestamps** into proper datetime\
-6. **Writes the dataset to a MySQL table**, replacing any existing
-    data\
-7. **Adds an auto-increment primary key**\
-8. **Creates useful indexes** on `time_stamp` and `year` for query
-    performance
+## Project structure
 
-## 📁 Project Structure
+- `data_clean.py`: CLI entrypoint and ingestion implementation (`python3 data_clean.py`)
+- `data/`: source CSV files
+- `tests/test_data_clean.py`: unit + dry-run CLI tests
+- `.env.example`: required database settings
 
-    .
-    ├── data/
-    │   ├── tracking_2023.csv
-    │   ├── tracking_2024.csv
-    │   └── ...
-    ├── .gitignore
-    ├── config.py
-    ├── data-clean.py
-    └── README.md
+## Installation
 
-## 📊 Data Requirements
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
 
-### 1. CSV files
+## Configuration
 
-Place CSVs in the `data/` directory.\
-Each filename must contain a **4-digit year** (e.g.,
-`tracking_2024.csv`).
+Copy `.env.example` to `.env` and set values:
 
-### 2. Required columns
+```bash
+MYSQL_HOST=localhost
+MYSQL_PORT=3306
+MYSQL_USER=your_username
+MYSQL_PASSWORD=your_password
+MYSQL_DATABASE=your_database
+MYSQL_TABLE=halloween_tracking
+```
 
-Your CSVs should contain:
+`MYSQL_TABLE` is optional; default is `halloween_tracking`.
 
-  Column Name   |    Purpose
-  ----------------- | -------------------------------------
-  `counter_value`   | Used to filter out zeroes
-  `increment`       | Stored as integer
-  `time_stamp`      | Parsed into datetime
-  `date`, `time`    | Dropped once `time_stamp` is parsed
+## Run
 
-Columns are auto-cleaned to:
+Dry run (validates/parses only, no DB writes):
 
-- lowercase
-- underscores instead of spaces
-- no special characters
+```bash
+python3 data_clean.py --dry-run
+```
 
-## 🔧 Configuration
+Full ingestion:
 
-Create a `config.py` file:
+```bash
+python3 data_clean.py
+```
 
-    ``` python
-    USER = "your_username"
-    PASS = "your_password"
-    HOST = "localhost"
-    PORT = 3306
-    DB   = "your_database"
-    ```
+Optional flags:
 
-## 🏗️ How It Works
+- `--data-dir data`
+- `--table halloween_tracking`
+- `--dry-run`
+- `--verbose`
 
-### 1. Load & Clean Data
+## Target table
 
-CSV files are loaded, cleaned, and concatenated.
+Default table: `halloween_tracking`
 
-### 2. Filtering
+Columns:
 
-Rows where `counter_value == 0` are removed.
+- `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY
+- `event_ts` DATETIME(6) NOT NULL
+- `event_date` DATE NOT NULL
+- `event_time` TIME NOT NULL
+- `counter_value` INT UNSIGNED NOT NULL
+- `increment` TINYINT NOT NULL
+- `event_year` SMALLINT UNSIGNED NOT NULL
+- `source_file` VARCHAR(255) NOT NULL
+- `source_row_num` INT UNSIGNED NOT NULL
+- `ingested_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 
-### 3. Timestamp Handling
+Indexes/constraints:
 
-`time_stamp` is parsed with `pd.to_datetime`.
+- `idx_event_ts (event_ts)`
+- `idx_event_year (event_year)`
+- unique `uq_source_row (source_file, source_row_num)`
 
-### 4. Loading to MySQL
+## Validation behavior
 
-Data is written with appropriate MySQL types and replaced each run.
+The script fails fast (non-zero exit) for:
 
-### 5. Post-Load SQL Operations
+- Missing required columns
+- Invalid timestamps/dates/times
+- Invalid integers in `counter_value`/`increment`
+- `increment` values outside `-1, 0, 1`
+- Filenames without a 4-digit year
+- Missing DB env vars / DB connectivity issues
 
-- Adds `id` BIGINT AUTO_INCREMENT primary key\
-- Adds indexes on `time_stamp` and `year`
+Errors include file, column, first failing row, offending value, and suggested fix.
 
-## ▶️ Running the Script
+## Testing
 
-Install dependencies:
+Run tests:
 
-    ``` bash
-    pip install pandas sqlalchemy pymysql pypandoc
-    ```
-
-Run:
-
-    ``` bash
-    python3 data-clean.py
-    ```
-
-## 🧪 Example Query
-
-    ``` sql
-    SELECT *
-    FROM halloween_tracking
-    WHERE year = 2024
-    ORDER BY time_stamp DESC
-    LIMIT 50;
-    ```
-
-## 📄 License
-
-This project is licensed under the **MIT License**.\
-See the `LICENSE` file for full details.
-
-## Additional Info
-
-This README.md was created with the assistance of AI.
+```bash
+python3 -m unittest discover -s tests -v
+```
