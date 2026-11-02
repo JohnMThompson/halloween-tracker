@@ -355,54 +355,64 @@ def ensure_schema(engine: Engine, table_name: str) -> None:
 
 def upsert_dataframe(engine: Engine, table_name: str, df: pd.DataFrame) -> UpsertStats:
     table_name = validate_table_name(table_name)
+
     if df.empty:
         return UpsertStats(input_rows=0, mysql_affected_rows=0)
 
-    staging_table = f"{table_name}_staging_{uuid.uuid4().hex[:8]}"
-    staging_table = validate_table_name(staging_table)
+    upsert_sql = text(
+        f"""
+        INSERT INTO `{table_name}` (
+            event_ts,
+            event_date,
+            event_time,
+            counter_value,
+            increment,
+            event_year,
+            source_file,
+            source_row_num
+        )
+        VALUES (
+            :event_ts,
+            :event_date,
+            :event_time,
+            :counter_value,
+            :increment,
+            :event_year,
+            :source_file,
+            :source_row_num
+        )
+        ON DUPLICATE KEY UPDATE
+            event_ts = VALUES(event_ts),
+            event_date = VALUES(event_date),
+            event_time = VALUES(event_time),
+            counter_value = VALUES(counter_value),
+            increment = VALUES(increment),
+            event_year = VALUES(event_year)
+        """
+    )
 
-    mysql_affected_rows = 0
+    rows = []
+
+    for record in df.to_dict(orient="records"):
+        rows.append({
+            "event_ts": record["event_ts"].to_pydatetime(),
+            "event_date": record["event_date"],
+            "event_time": record["event_time"],
+            "counter_value": int(record["counter_value"]),
+            "increment": int(record["increment"]),
+            "event_year": int(record["event_year"]),
+            "source_file": str(record["source_file"]),
+            "source_row_num": int(record["source_row_num"]),
+        })
+
     with engine.begin() as conn:
-        try:
-            df.to_sql(staging_table, con=conn, if_exists="replace", index=False, method="multi")
+        result = conn.execute(upsert_sql, rows)
+        affected_rows = int(result.rowcount or 0)
 
-            upsert_sql = text(
-                f"""
-                INSERT INTO `{table_name}` (
-                    `event_ts`,
-                    `event_date`,
-                    `event_time`,
-                    `counter_value`,
-                    `increment`,
-                    `event_year`,
-                    `source_file`,
-                    `source_row_num`
-                )
-                SELECT
-                    `event_ts`,
-                    `event_date`,
-                    `event_time`,
-                    `counter_value`,
-                    `increment`,
-                    `event_year`,
-                    `source_file`,
-                    `source_row_num`
-                FROM `{staging_table}`
-                ON DUPLICATE KEY UPDATE
-                    `event_ts` = VALUES(`event_ts`),
-                    `event_date` = VALUES(`event_date`),
-                    `event_time` = VALUES(`event_time`),
-                    `counter_value` = VALUES(`counter_value`),
-                    `increment` = VALUES(`increment`),
-                    `event_year` = VALUES(`event_year`)
-                """
-            )
-            result = conn.execute(upsert_sql)
-            mysql_affected_rows = int(result.rowcount or 0)
-        finally:
-            conn.execute(text(f"DROP TABLE IF EXISTS `{staging_table}`"))
-
-    return UpsertStats(input_rows=len(df), mysql_affected_rows=mysql_affected_rows)
+    return UpsertStats(
+        input_rows=len(df),
+        mysql_affected_rows=affected_rows,
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -456,7 +466,6 @@ def run(args: argparse.Namespace) -> RunStats:
             print("Dry run enabled; skipped database write.")
     else:
         engine = get_engine_from_env()
-        ensure_schema(engine, table_name)
         upsert_stats = upsert_dataframe(engine, table_name, cleaned)
         mysql_affected_rows = upsert_stats.mysql_affected_rows
 
